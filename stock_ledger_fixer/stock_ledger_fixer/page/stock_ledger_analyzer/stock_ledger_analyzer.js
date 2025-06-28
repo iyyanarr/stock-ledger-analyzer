@@ -256,14 +256,17 @@ class StockLedgerAnalyzer {
 	}
 
 	open_repost_item_valuation(stock_entry_name) {
-		// Create a new Repost Item Valuation document with pre-filled values
-		frappe.new_doc('Repost Item Valuation', {
+		// Set route options to pre-fill the form
+		frappe.route_options = {
 			voucher_type: 'Stock Entry',
 			voucher_no: stock_entry_name,
 			posting_date: frappe.datetime.get_today(),
 			posting_time: frappe.datetime.get_time(),
 			allow_zero_rate: 1,
 			recreate_stock_ledgers: 1
-		});
+		};
+		
+		// Navigate to new Repost Item Valuation form
+		frappe.new_doc('Repost Item Valuation');
 	}
 }
