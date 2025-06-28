@@ -40,13 +40,33 @@ app_license = "mit"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"stock-ledger-analyzer" : "public/js/stock_ledger_analyzer.js"}
 
-# include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
-# doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+# Document Events
+# ---------------
+
+doc_events = {
+    "Stock Entry": {
+        "on_submit": "stock_ledger_fixer.stock_ledger_fixer.hooks.validate_stock_entry_on_submit",
+        "after_insert": "stock_ledger_fixer.stock_ledger_fixer.hooks.schedule_stock_entry_validation"
+    }
+}
+
+# Scheduled Tasks
+# ---------------
+
+scheduler_events = {
+    "cron": {
+        # Run stock ledger validation every hour
+        "0 * * * *": [
+            "stock_ledger_fixer.stock_ledger_fixer.tasks.validate_recent_stock_entries"
+        ],
+        # Run comprehensive analysis daily at 2 AM
+        "0 2 * * *": [
+            "stock_ledger_fixer.stock_ledger_fixer.tasks.daily_stock_ledger_analysis"
+        ]
+    }
+}
 
 # Svg Icons
 # ------------------
