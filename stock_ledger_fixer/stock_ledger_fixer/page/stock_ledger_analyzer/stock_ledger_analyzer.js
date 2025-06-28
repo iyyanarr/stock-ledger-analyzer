@@ -256,17 +256,19 @@ class StockLedgerAnalyzer {
 	}
 
 	open_repost_item_valuation(stock_entry_name) {
-		// Set route options to pre-fill the form
+		// Use a more reliable approach with setTimeout to ensure route_options are set
 		frappe.route_options = {
-			voucher_type: 'Stock Entry',
-			voucher_no: stock_entry_name,
-			posting_date: frappe.datetime.get_today(),
-			posting_time: frappe.datetime.get_time(),
-			allow_zero_rate: 1,
-			recreate_stock_ledgers: 1
+			'voucher_type': 'Stock Entry',
+			'voucher_no': stock_entry_name,
+			'posting_date': frappe.datetime.get_today(),
+			'posting_time': frappe.datetime.get_time(),
+			'allow_zero_rate': 1,
+			'recreate_stock_ledgers': 1
 		};
 		
-		// Navigate to new Repost Item Valuation form
-		frappe.new_doc('Repost Item Valuation');
+		// Small delay to ensure route_options are properly set
+		setTimeout(() => {
+			frappe.set_route('Form', 'Repost Item Valuation', 'new');
+		}, 100);
 	}
 }
