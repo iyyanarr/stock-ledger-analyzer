@@ -205,7 +205,9 @@ class StockLedgerAnalyzer {
 
 	create_results_table(data) {
 		const table_html = `
-			<h4>Problematic Entries (SLE Issues)</h4>
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4>Problematic Entries (SLE Issues)</h4>
+			</div>
 			<table class="table table-striped">
 				<thead>
 					<tr>
@@ -216,6 +218,7 @@ class StockLedgerAnalyzer {
 						<th>Expected SLE</th>
 						<th>Actual SLE</th>
 						<th>Details</th>
+						<th>Actions</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -235,6 +238,11 @@ class StockLedgerAnalyzer {
 								<small>${row.issue_details || ''}</small>
 								${row.movements ? `<br><small class="text-muted">${row.movements.slice(0, 2).join(', ')}</small>` : ''}
 							</td>
+							<td>
+								<button class="btn btn-xs btn-primary" onclick="frappe.stock_ledger_analyzer.open_repost_item_valuation('${row.name}')" title="Open Repost Item Valuation">
+									<i class="fa fa-refresh"></i> Repost
+								</button>
+							</td>
 						</tr>
 					`).join('')}
 				</tbody>
@@ -242,5 +250,20 @@ class StockLedgerAnalyzer {
 		`;
 		
 		this.results_area.find('.results-table').html(table_html);
+		
+		// Store the current data for later use
+		this.current_problematic_entries = data;
+	}
+
+	open_repost_item_valuation(stock_entry_name) {
+		// Create a new Repost Item Valuation document with pre-filled values
+		frappe.new_doc('Repost Item Valuation', {
+			voucher_type: 'Stock Entry',
+			voucher_no: stock_entry_name,
+			posting_date: frappe.datetime.get_today(),
+			posting_time: frappe.datetime.get_time(),
+			allow_zero_rate: 1,
+			recreate_stock_ledgers: 1
+		});
 	}
 }
