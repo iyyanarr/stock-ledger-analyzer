@@ -256,19 +256,20 @@ class StockLedgerAnalyzer {
 	}
 
 	open_repost_item_valuation(stock_entry_name) {
-		// Use a more reliable approach with setTimeout to ensure route_options are set
-		frappe.route_options = {
-			'voucher_type': 'Stock Entry',
-			'voucher_no': stock_entry_name,
-			'posting_date': frappe.datetime.get_today(),
-			'posting_time': frappe.datetime.get_time(),
-			'allow_zero_rate': 1,
-			'recreate_stock_ledgers': 1
-		};
-		
-		// Small delay to ensure route_options are properly set
-		setTimeout(() => {
-			frappe.set_route('Form', 'Repost Item Valuation', 'new');
-		}, 100);
+		// Create and open new Repost Item Valuation document
+		frappe.model.with_doctype('Repost Item Valuation', () => {
+			var doc = frappe.model.get_new_doc('Repost Item Valuation');
+			
+			// Set values directly on the document
+			frappe.model.set_value(doc.doctype, doc.name, 'voucher_type', 'Stock Entry');
+			frappe.model.set_value(doc.doctype, doc.name, 'voucher_no', stock_entry_name);
+			frappe.model.set_value(doc.doctype, doc.name, 'posting_date', frappe.datetime.get_today());
+			frappe.model.set_value(doc.doctype, doc.name, 'posting_time', frappe.datetime.get_time());
+			frappe.model.set_value(doc.doctype, doc.name, 'allow_zero_rate', 1);
+			frappe.model.set_value(doc.doctype, doc.name, 'recreate_stock_ledgers', 1);
+			
+			// Navigate to the form
+			frappe.set_route('Form', 'Repost Item Valuation', doc.name);
+		});
 	}
 }
