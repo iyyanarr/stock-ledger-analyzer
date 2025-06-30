@@ -9,8 +9,14 @@ def validate_stock_entry_on_submit(doc, method):
     Performs quick validation to detect obvious issues.
     """
     try:
-        # Only validate if the feature is enabled
-        if not frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation"):
+        # Check if validation is enabled (with fallback if field doesn't exist)
+        try:
+            validation_enabled = frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation")
+        except Exception:
+            # Field doesn't exist, default to enabled for validation
+            validation_enabled = True
+            
+        if not validation_enabled:
             return
         
         # Give ERPNext some time to create SLE entries

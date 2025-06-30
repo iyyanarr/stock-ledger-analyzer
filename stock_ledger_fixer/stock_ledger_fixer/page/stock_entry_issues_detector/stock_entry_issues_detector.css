@@ -1,0 +1,148 @@
+.summary-section {
+    margin-bottom: 20px;
+}
+
+.summary-stats {
+    margin-top: 15px;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 10px;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.results-section {
+    background: white;
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#results-table {
+    margin-bottom: 0;
+}
+
+#results-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 13px;
+    color: #495057;
+}
+
+.stock-entry-link {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.stock-entry-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.badge {
+    font-size: 11px;
+}
+
+.fix-entry-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.error-log-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #fee;
+    border-left: 3px solid #dc3545;
+    border-radius: 3px;
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.filter-section {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Modal improvements */
+.modal-xl {
+    max-width: 95%;
+}
+
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Progress styling */
+.progress {
+    height: 4px;
+    margin-bottom: 20px;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 15px;
+    }
+    
+    .table-responsive {
+        font-size: 14px;
+    }
+    
+    .modal-xl {
+        max-width: 100%;
+        margin: 10px;
+    }
+}
+
+/* Loading state */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

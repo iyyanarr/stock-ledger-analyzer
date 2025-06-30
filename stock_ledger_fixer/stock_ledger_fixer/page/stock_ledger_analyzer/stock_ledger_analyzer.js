@@ -94,6 +94,11 @@ class StockLedgerAnalyzer {
 		this.page.set_primary_action('Analyze', () => {
 			this.analyze_stock_ledger();
 		});
+		
+		// Add Bulk Fix action
+		this.page.add_action_icon('fa fa-magic', () => {
+			this.show_bulk_fix_dialog();
+		}, 'Bulk Fix SLE Issues', 'Bulk Fix');
 	}
 
 	setup_results_area() {
