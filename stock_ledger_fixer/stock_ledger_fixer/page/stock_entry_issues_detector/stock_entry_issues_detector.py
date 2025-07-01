@@ -290,9 +290,12 @@ def fix_missing_sles(stock_entry_name):
         stock_entry.posting_date = original_posting_date
         stock_entry.posting_time = original_posting_time
         
+        # Also set the set_posting_time flag to preserve the original dates
+        stock_entry.set_posting_time = 1
+        
         # Submit again to regenerate SLEs with corrected bundles
-        stock_entry.docstatus = 1
-        stock_entry.save(ignore_permissions=True)
+        # Use the proper submit method instead of directly setting docstatus
+        stock_entry.submit()
         
         # Verify fix
         new_sle_count = frappe.db.count("Stock Ledger Entry", {"voucher_no": stock_entry_name})
