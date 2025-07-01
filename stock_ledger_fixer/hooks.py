@@ -54,19 +54,19 @@ doc_events = {
 
 # Scheduled Tasks
 # ---------------
-
-scheduler_events = {
-    "cron": {
-        # Run stock ledger validation every hour
-        "0 * * * *": [
-            "stock_ledger_fixer.stock_ledger_fixer.tasks.validate_recent_stock_entries"
-        ],
-        # Run comprehensive analysis daily at 2 AM
-        "0 2 * * *": [
-            "stock_ledger_fixer.stock_ledger_fixer.tasks.daily_stock_ledger_analysis"
-        ]
-    }
-}
+# Commented out until tasks module is implemented
+# scheduler_events = {
+#     "cron": {
+#         # Run stock ledger validation every hour
+#         "0 * * * *": [
+#             "stock_ledger_fixer.stock_ledger_fixer.tasks.validate_recent_stock_entries"
+#         ],
+#         # Run comprehensive analysis daily at 2 AM
+#         "0 2 * * *": [
+#             "stock_ledger_fixer.stock_ledger_fixer.tasks.daily_stock_ledger_analysis"
+#         ]
+#     }
+# }
 
 # Svg Icons
 # ------------------
