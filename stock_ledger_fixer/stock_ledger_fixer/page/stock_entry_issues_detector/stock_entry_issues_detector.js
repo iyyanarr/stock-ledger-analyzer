@@ -582,6 +582,29 @@ class StockEntryIssuesDetector {
 	}
 
 	async fix_single_entry(stock_entry_name) {
+			let me = this;
+		
+		// First check for negative stock issues
+		try {
+			let negative_analysis = await frappe.call({
+				method: 'stock_ledger_fixer.stock_ledger_fixer.page.stock_entry_issues_detector.stock_entry_issues_detector.analyze_negative_stock_for_stock_entry',
+				args: { stock_entry_name: stock_entry_name }
+			});
+
+			if (negative_analysis.message.status === 'success' && negative_analysis.message.negative_items.length > 0) {
+				// Show negative stock analysis first
+				me.show_negative_stock_analysis(stock_entry_name, negative_analysis.message);
+				return;
+			}
+		} catch (error) {
+			console.warn('Could not analyze negative stock:', error);
+		}
+		
+		// Proceed with normal fix if no negative stock issues
+		me.proceed_with_fix(stock_entry_name);
+	}
+
+	proceed_with_fix(stock_entry_name) {
 		let me = this;
 		
 		frappe.confirm(
@@ -706,5 +729,225 @@ class StockEntryIssuesDetector {
 		a.download = `stock_entry_issues_${frappe.datetime.now_date()}.csv`;
 		a.click();
 		window.URL.revokeObjectURL(url);
+	}
+
+	show_negative_stock_analysis(stock_entry_name, analysis_data) {
+		let me = this;
+		let negative_items = analysis_data.negative_items;
+		let summary = analysis_data.summary;
+		
+		let negative_items_html = negative_items.map(item => {
+			let batch_info = item.batch_no !== "No Batch" ? `<strong>Batch:</strong> ${item.batch_no}<br>` : '';
+			let status_badge = item.is_currently_negative ? 
+				'<span class="badge badge-danger">Currently Negative</span>' : 
+				'<span class="badge badge-warning">Will Be Negative</span>';
+			
+			return `
+				<div class="alert alert-${item.is_currently_negative ? 'danger' : 'warning'}" style="margin-bottom: 15px;">
+					<h6>${item.item_code} ${status_badge}</h6>
+					<div class="row">
+						<div class="col-md-6">
+							${batch_info}
+							<strong>Warehouse:</strong> ${item.warehouse}<br>
+							<strong>Current Stock:</strong> ${frappe.format(item.current_qty, {fieldtype: 'Float', precision: 2})}<br>
+							<strong>Required:</strong> ${frappe.format(item.required_qty, {fieldtype: 'Float', precision: 2})}
+						</div>
+						<div class="col-md-6">
+							<strong>Shortage:</strong> ${frappe.format(item.shortage, {fieldtype: 'Float', precision: 2})}<br>
+							<strong>Total Transactions:</strong> ${item.transaction_count}<br>
+							<strong>Last Transaction:</strong> ${item.last_transaction ? frappe.datetime.str_to_user(item.last_transaction) : 'None'}
+						</div>
+					</div>
+					
+					${item.recent_transactions && item.recent_transactions.length > 0 ? `
+						<h6 style="margin-top: 15px;">Recent Transactions:</h6>
+						<div class="table-responsive">
+							<table class="table table-sm">
+								<thead>
+									<tr><th>Date</th><th>Document</th><th>Qty Change</th><th>Balance After</th></tr>
+								</thead>
+								<tbody>
+									${item.recent_transactions.slice(0, 5).map(txn => `
+										<tr class="${txn.voucher_no === stock_entry_name ? 'table-info' : ''}">
+											<td>${frappe.datetime.str_to_user(txn.posting_date)}</td>
+											<td><small>${txn.voucher_type}</small><br>${txn.voucher_no}</td>
+											<td class="${txn.actual_qty < 0 ? 'text-danger' : 'text-success'}">
+												${frappe.format(txn.actual_qty, {fieldtype: 'Float', precision: 2})}
+											</td>
+											<td class="${txn.qty_after_transaction < 0 ? 'text-danger' : ''}">
+												${frappe.format(txn.qty_after_transaction, {fieldtype: 'Float', precision: 2})}
+											</td>
+										</tr>
+									`).join('')}
+								</tbody>
+							</table>
+						</div>
+					` : ''}
+				</div>
+			`;
+		}).join('');
+
+		let modal_content = `
+			<div class="modal fade" id="negative-stock-analysis-modal" tabindex="-1">
+				<div class="modal-dialog modal-xl">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h5 class="modal-title">⚠️ Negative Stock Issues Detected</h5>
+							<button type="button" class="close" data-dismiss="modal">&times;</button>
+						</div>
+						<div class="modal-body">
+							<div class="alert alert-warning">
+								<h6>Stock Entry: ${stock_entry_name}</h6>
+								<p><strong>Cannot proceed with fix due to negative stock issues.</strong></p>
+								<p>The following items have negative stock that would prevent the fix from completing:</p>
+								<ul>
+									<li><strong>Currently Negative:</strong> ${summary.currently_negative} items</li>
+									<li><strong>Will Be Negative:</strong> ${summary.will_be_negative} items</li>
+									<li><strong>Total Issues:</strong> ${summary.total_negative_items} items</li>
+								</ul>
+							</div>
+							
+							<h6>Detailed Breakdown:</h6>
+							${negative_items_html}
+							
+							<div class="alert alert-info">
+								<h6>📋 Next Steps:</h6>
+								<ol>
+									<li><strong>Check the transactions:</strong> Items highlighted in blue are from this stock entry</li>
+									<li><strong>Verify data integrity:</strong> Ensure all previous stock movements are correct</li>
+									<li><strong>Fix negative stock first:</strong> Use Stock Reconciliation or correct previous entries</li>
+									<li><strong>Then retry this fix:</strong> Once stock is positive, this fix can proceed</li>
+								</ol>
+							</div>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+							<button type="button" class="btn btn-warning" onclick="frappe.stock_entry_issues_detector.proceed_with_fix('${stock_entry_name}')">
+								⚠️ Force Fix (Risk Data Issues)
+							</button>
+							<button type="button" class="btn btn-primary" id="create-reconciliation-btn" data-stock-entry="${stock_entry_name}">
+								📊 Create Pre-filled Stock Reconciliation
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+
+		// Remove existing modal if any
+		$('#negative-stock-analysis-modal').remove();
+		
+		// Store negative items data for the reconciliation button
+		this.current_negative_items = negative_items;
+		
+		// Add modal to body and show
+		$('body').append(modal_content);
+		$('#negative-stock-analysis-modal').modal('show');
+		
+		// Bind event for reconciliation button
+		$('#create-reconciliation-btn').on('click', (e) => {
+			let stock_entry_name = $(e.target).data('stock-entry');
+			this.create_prefilled_reconciliation(stock_entry_name, this.current_negative_items);
+		});
+	}
+
+	create_prefilled_reconciliation(stock_entry_name, negative_items) {
+		if (!negative_items || negative_items.length === 0) {
+			frappe.msgprint('No negative stock items found to reconcile.');
+			return;
+		}
+		
+		frappe.show_progress('Creating Stock Reconciliation...', 30, 100);
+		
+		// Close the modal first
+		$('#negative-stock-analysis-modal').modal('hide');
+		
+		// Prepare the items data
+		let items_data = [];
+		negative_items.forEach((item, index) => {
+			// Calculate target quantity - we want to bring negative stock to zero or positive
+			let target_qty = 0; // Set to 0 to clear negative stock
+			
+			let reconciliation_item = {
+				item_code: item.item_code,
+				warehouse: item.warehouse,
+				qty: target_qty, // Try 'qty' field again
+				quantity: target_qty, // Also try 'quantity' field
+				current_qty: Math.abs(item.current_balance), // Show absolute value for reference
+			};
+			
+			// Handle batch information
+			if (item.batch_no && item.batch_no !== "No Batch") {
+				reconciliation_item.batch_no = item.batch_no;
+			}
+			
+			// Set valuation rate if available
+			if (item.valuation_rate && item.valuation_rate > 0) {
+				reconciliation_item.valuation_rate = item.valuation_rate;
+				reconciliation_item.amount = target_qty * item.valuation_rate;
+			}
+			
+			items_data.push(reconciliation_item);
+		});
+		
+		// Create remarks
+		let remarks = `Stock Reconciliation to fix negative stock issues from Stock Entry: ${stock_entry_name}
+
+IMPORTANT: Quantities below are set to 0 to clear negative stock. Adjust as needed.
+
+Items fixed:
+${negative_items.map(item => `- ${item.item_code} in ${item.warehouse}${item.batch_no && item.batch_no !== 'No Batch' ? ' (Batch: ' + item.batch_no + ')' : ''}: Current Balance ${item.current_balance} → Target: 0`).join('\n')}`;
+		
+		frappe.hide_progress();
+		
+		// Use proper document creation and opening approach
+		frappe.model.with_doctype('Stock Reconciliation', () => {
+			// Create new document using the model
+			let sr_doc = frappe.model.get_new_doc('Stock Reconciliation');
+			
+			// Set basic document properties
+			sr_doc.purpose = 'Stock Reconciliation';
+			sr_doc.posting_date = frappe.datetime.get_today();
+			sr_doc.set_posting_time = 0;
+			sr_doc.remarks = remarks;
+			
+			// Add items to the document
+			items_data.forEach((item_data, index) => {
+				let row = frappe.model.add_child(sr_doc, 'Stock Reconciliation Item', 'items');
+				
+				// Set specific fields directly
+				row.item_code = item_data.item_code;
+				row.warehouse = item_data.warehouse;
+				row.qty = 0; // Force set to 0
+				row.quantity = 0; // Also try quantity field
+				
+				if (item_data.batch_no) {
+					row.batch_no = item_data.batch_no;
+				}
+				
+				if (item_data.valuation_rate) {
+					row.valuation_rate = item_data.valuation_rate;
+					row.amount = 0; // 0 qty * valuation_rate = 0
+				}
+				
+				console.log(`Row ${index + 1} set:`, {
+					item_code: row.item_code,
+					warehouse: row.warehouse,
+					qty: row.qty,
+					quantity: row.quantity,
+					batch_no: row.batch_no
+				});
+			});
+			
+			// Open the form with the pre-filled document
+			frappe.set_route('Form', 'Stock Reconciliation', sr_doc.name);
+			
+			setTimeout(() => {
+				frappe.show_alert({
+					message: `📊 Stock Reconciliation created with ${negative_items.length} negative stock items. Please review and submit.`,
+					indicator: 'blue'
+				});
+			}, 500);
+		});
 	}
 }

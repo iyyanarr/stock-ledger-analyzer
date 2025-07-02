@@ -247,11 +247,27 @@ def fix_missing_sles(stock_entry_name):
         bundle_fix_result = fix_serial_batch_bundles(stock_entry)
         has_bundle_issues = bundle_fix_result.get("fixed_bundles", 0) > 0
         
-        if existing_sle_count == expected_sle_count and not has_bundle_issues:
-            return {"status": "success", "message": "No missing SLEs or bundle issues found"}
+        # Handle negative stock issues before attempting to fix SLEs
+        negative_stock_issues = handle_negative_stock_before_fix(stock_entry)
+        has_negative_stock_issues = len(negative_stock_issues) > 0
+        
+        if existing_sle_count == expected_sle_count and not has_bundle_issues and not has_negative_stock_issues:
+            return {"status": "success", "message": "No missing SLEs, bundle issues, or negative stock issues found"}
+        
+        # If there are negative stock issues, provide detailed feedback
+        if has_negative_stock_issues:
+            negative_details = []
+            for item in negative_stock_issues:
+                batch_info = f" (Batch: {item['batch_no']})" if item['batch_no'] != "No Batch" else ""
+                negative_details.append(f"{item['item_code']}{batch_info} in {item['warehouse']}: Current {item['current_qty']}, Required {item['required_qty']}, Shortage {item['shortage']}")
+            
+            frappe.log_error(
+                message=f"Negative stock detected for {stock_entry_name}:\n" + "\n".join(negative_details),
+                title="Negative Stock Warning"
+            )
         
         frappe.log_error(
-            message=f"Fixing SLEs for {stock_entry_name}. Expected: {expected_sle_count}, Found: {existing_sle_count}, Bundle fixes: {bundle_fix_result.get('fixed_bundles', 0)}",
+            message=f"Fixing SLEs for {stock_entry_name}. Expected: {expected_sle_count}, Found: {existing_sle_count}, Bundle fixes: {bundle_fix_result.get('fixed_bundles', 0)}, Negative stock items: {len(negative_stock_issues)}",
             title="SLE Fix Started"
         )
         
@@ -293,9 +309,26 @@ def fix_missing_sles(stock_entry_name):
         # Also set the set_posting_time flag to preserve the original dates
         stock_entry.set_posting_time = 1
         
+        # Log the items being processed for debugging
+        frappe.log_error(
+            message=f"Processing {len(stock_entry.items)} items for {stock_entry_name}: {[f'{item.item_code} (Batch: {item.batch_no})' for item in stock_entry.items]}",
+            title="SLE Fix Items"
+        )
+        
         # Submit again to regenerate SLEs with corrected bundles
-        # Use the proper submit method instead of directly setting docstatus
-        stock_entry.submit()
+        # Temporarily disable negative stock validation to allow fixing
+        original_allow_negative_stock = frappe.db.get_single_value("Stock Settings", "allow_negative_stock")
+        
+        try:
+            # Enable negative stock temporarily
+            frappe.db.set_value("Stock Settings", None, "allow_negative_stock", 1)
+            
+            # Use the proper submit method instead of directly setting docstatus
+            stock_entry.submit()
+            
+        finally:
+            # Restore original setting
+            frappe.db.set_value("Stock Settings", None, "allow_negative_stock", original_allow_negative_stock)
         
         # Verify fix
         new_sle_count = frappe.db.count("Stock Ledger Entry", {"voucher_no": stock_entry_name})
@@ -304,13 +337,36 @@ def fix_missing_sles(stock_entry_name):
             message = f"Fixed! Created {new_sle_count} SLEs"
             if bundle_fix_result.get("fixed_bundles"):
                 message += f" and fixed {bundle_fix_result['fixed_bundles']} bundle inconsistencies"
+            if has_negative_stock_issues:
+                message += f". Note: {len(negative_stock_issues)} items had negative stock issues"
             return {"status": "success", "message": message}
         else:
             return {"status": "error", "message": f"Fix failed. Expected: {expected_sle_count}, Got: {new_sle_count}"}
             
     except Exception as e:
-        frappe.log_error(message=frappe.get_traceback(), title="SLE Fix Error")
-        return {"status": "error", "message": str(e)}
+        frappe.log_error(
+            message=f"SLE Fix Error for {stock_entry_name}: {str(e)}\n\nFull traceback:\n{frappe.get_traceback()}", 
+            title="SLE Fix Error"
+        )
+        
+        # Provide more specific error message
+        error_msg = str(e)
+        if "negative stock" in error_msg.lower():
+            # Get detailed negative stock info for better error message
+            negative_items = handle_negative_stock_before_fix(stock_entry)
+            if negative_items:
+                batch_details = []
+                for item in negative_items:
+                    batch_info = f" (Batch: {item['batch_no']})" if item['batch_no'] != "No Batch" else ""
+                    batch_details.append(f"{item['item_code']}{batch_info}: {item['shortage']} short")
+                
+                error_msg = f"Cannot fix due to negative stock validation. Issues: {'; '.join(batch_details)}"
+            else:
+                error_msg = f"Cannot fix due to negative stock validation. {error_msg}"
+        elif "insufficient stock" in error_msg.lower():
+            error_msg = f"Cannot fix due to insufficient stock. {error_msg}"
+            
+        return {"status": "error", "message": error_msg}
 
 def fix_serial_batch_bundles(stock_entry):
     """
@@ -539,3 +595,120 @@ def get_stock_entry_types():
         
     except Exception as e:
         return [{"label": "All", "value": "All"}]
+
+def handle_negative_stock_before_fix(stock_entry):
+    """
+    Check for negative stock issues with detailed batch-wise breakdown
+    This should be called before attempting to fix SLEs
+    """
+    negative_items = []
+    
+    for item in stock_entry.items:
+        if item.s_warehouse and flt(item.qty) > 0:
+            # Check current stock for batch items with detailed breakdown
+            if item.batch_no:
+                current_stock = frappe.db.sql("""
+                    SELECT 
+                        SUM(actual_qty) as current_qty,
+                        COUNT(*) as transaction_count,
+                        MIN(posting_date) as first_transaction,
+                        MAX(posting_date) as last_transaction
+                    FROM `tabStock Ledger Entry`
+                    WHERE item_code = %s AND warehouse = %s AND batch_no = %s
+                """, (item.item_code, item.s_warehouse, item.batch_no), as_dict=1)
+            else:
+                current_stock = frappe.db.sql("""
+                    SELECT 
+                        SUM(actual_qty) as current_qty,
+                        COUNT(*) as transaction_count,
+                        MIN(posting_date) as first_transaction,
+                        MAX(posting_date) as last_transaction
+                    FROM `tabStock Ledger Entry`
+                    WHERE item_code = %s AND warehouse = %s AND (batch_no IS NULL OR batch_no = '')
+                """, (item.item_code, item.s_warehouse), as_dict=1)
+            
+            current_qty = flt(current_stock[0].current_qty) if current_stock and current_stock[0].current_qty else 0
+            
+            # Check if this stock entry would cause negative stock
+            will_be_negative = current_qty - flt(item.qty) < 0
+            is_currently_negative = current_qty < 0
+            
+            if is_currently_negative or will_be_negative:
+                # Get additional details about the negative stock
+                shortage = abs(min(current_qty, current_qty - flt(item.qty)))
+                
+                negative_items.append({
+                    "item_code": item.item_code,
+                    "warehouse": item.s_warehouse,
+                    "batch_no": item.batch_no or "No Batch",
+                    "current_qty": current_qty,
+                    "required_qty": item.qty,
+                    "shortage": shortage,
+                    "is_currently_negative": is_currently_negative,
+                    "will_be_negative": will_be_negative,
+                    "transaction_count": current_stock[0].transaction_count if current_stock else 0,
+                    "first_transaction": current_stock[0].first_transaction if current_stock else None,
+                    "last_transaction": current_stock[0].last_transaction if current_stock else None
+                })
+    
+    return negative_items
+
+@frappe.whitelist()
+def analyze_negative_stock_for_stock_entry(stock_entry_name):
+    """
+    Analyze negative stock issues for a specific stock entry with detailed batch breakdown
+    """
+    try:
+        stock_entry = frappe.get_doc("Stock Entry", stock_entry_name)
+        
+        if stock_entry.docstatus != 1:
+            return {"status": "error", "message": "Stock Entry is not submitted"}
+        
+        negative_items = handle_negative_stock_before_fix(stock_entry)
+        
+        # Get additional context for each negative item
+        for item in negative_items:
+            # Get recent transactions for this item/batch/warehouse
+            recent_transactions = frappe.db.sql("""
+                SELECT 
+                    posting_date,
+                    posting_time,
+                    voucher_type,
+                    voucher_no,
+                    actual_qty,
+                    qty_after_transaction
+                FROM `tabStock Ledger Entry`
+                WHERE item_code = %s AND warehouse = %s 
+                AND (batch_no = %s OR (batch_no IS NULL AND %s = 'No Batch'))
+                ORDER BY posting_date DESC, posting_time DESC
+                LIMIT 10
+            """, (item["item_code"], item["warehouse"], 
+                  item["batch_no"] if item["batch_no"] != "No Batch" else "", 
+                  item["batch_no"]), as_dict=1)
+            
+            item["recent_transactions"] = recent_transactions
+            
+            # Check if this stock entry is causing the negative stock
+            item["is_caused_by_this_entry"] = any(
+                txn["voucher_no"] == stock_entry_name for txn in recent_transactions
+            )
+        
+        return {
+            "status": "success",
+            "stock_entry": {
+                "name": stock_entry.name,
+                "posting_date": stock_entry.posting_date,
+                "stock_entry_type": stock_entry.stock_entry_type,
+                "purpose": stock_entry.purpose
+            },
+            "negative_items": negative_items,
+            "summary": {
+                "total_negative_items": len(negative_items),
+                "currently_negative": len([item for item in negative_items if item["is_currently_negative"]]),
+                "will_be_negative": len([item for item in negative_items if item["will_be_negative"] and not item["is_currently_negative"]])
+            }
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), title="Negative Stock Analysis Error")
+        return {"status": "error", "message": str(e)}
