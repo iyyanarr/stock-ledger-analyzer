@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2025-07-03 10:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Stock Ledger Fixer",
+ "name": "stock-entry-monitor",
+ "owner": "Administrator",
+ "page_name": "Stock Entry Monitor",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Stock Manager" 
+  },
+  {
+   "role": "Stock User"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Stock Entry Monitor"
+}

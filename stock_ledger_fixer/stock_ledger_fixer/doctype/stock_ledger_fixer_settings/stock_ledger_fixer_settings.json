@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "creation": "2025-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "monitoring_section",
+  "enable_real_time_monitoring",
+  "monitor_missing_sles",
+  "monitor_negative_stock",
+  "column_break_4",
+  "notification_settings",
+  "notify_on_critical_issues",
+  "notify_users",
+  "section_break_8",
+  "auto_resolution_section",
+  "enable_auto_resolution",
+  "auto_resolve_missing_sles",
+  "max_auto_resolve_attempts"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enable_real_time_monitoring",
+   "fieldtype": "Check",
+   "label": "Enable Real-time Monitoring"
+  },
+  {
+   "default": "1",
+   "depends_on": "enable_real_time_monitoring",
+   "fieldname": "monitor_missing_sles",
+   "fieldtype": "Check",
+   "label": "Monitor Missing SLEs"
+  },
+  {
+   "default": "1",
+   "depends_on": "enable_real_time_monitoring",
+   "fieldname": "monitor_negative_stock",
+   "fieldtype": "Check",
+   "label": "Monitor Negative Stock"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_on_critical_issues",
+   "fieldtype": "Check",
+   "label": "Notify on Critical Issues"
+  },
+  {
+   "depends_on": "notify_on_critical_issues",
+   "fieldname": "notify_users",
+   "fieldtype": "Table MultiSelect",
+   "label": "Notify Users",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "enable_auto_resolution",
+   "fieldtype": "Check",
+   "label": "Enable Auto Resolution (Experimental)"
+  },
+  {
+   "default": "1",
+   "depends_on": "enable_auto_resolution",
+   "fieldname": "auto_resolve_missing_sles",
+   "fieldtype": "Check",
+   "label": "Auto Resolve Missing SLEs"
+  },
+  {
+   "default": "3",
+   "depends_on": "enable_auto_resolution",
+   "fieldname": "max_auto_resolve_attempts",
+   "fieldtype": "Int",
+   "label": "Max Auto Resolve Attempts"
+  },
+  {
+   "fieldname": "monitoring_section",
+   "fieldtype": "Section Break",
+   "label": "Real-time Monitoring"
+  },
+  {
+   "fieldname": "notification_settings",
+   "fieldtype": "Section Break",
+   "label": "Notification Settings"
+  },
+  {
+   "fieldname": "auto_resolution_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Resolution (Experimental)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Stock Ledger Fixer",
+ "name": "Stock Ledger Fixer Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

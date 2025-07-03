@@ -47,7 +47,10 @@ page_js = {"stock-ledger-analyzer" : "public/js/stock_ledger_analyzer.js"}
 
 doc_events = {
     "Stock Entry": {
-        "on_submit": "stock_ledger_fixer.stock_ledger_fixer.hooks.validate_stock_entry_on_submit",
+        "on_submit": [
+            "stock_ledger_fixer.stock_ledger_fixer.hooks.validate_stock_entry_on_submit",
+            "stock_ledger_fixer.stock_ledger_fixer.stock_entry_monitor.check_stock_entry_on_submit"
+        ],
         "after_insert": "stock_ledger_fixer.stock_ledger_fixer.hooks.schedule_stock_entry_validation"
     }
 }
@@ -261,4 +264,13 @@ doc_events = {
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
+
+# Fixtures
+# ------------------
+fixtures = [
+    {
+        "doctype": "Stock Ledger Fixer Settings",
+        "filters": {"name": "Stock Ledger Fixer Settings"}
+    }
+]
 
