@@ -36,6 +36,37 @@ class StockEntryMonitor {
 
 		// Main content area
 		this.page.main.html(`
+			<style>
+				/* Custom spinner styles for compatibility */
+				.custom-spinner {
+					border: 4px solid #f3f3f3;
+					border-top: 4px solid #007bff;
+					border-radius: 50%;
+					width: 40px;
+					height: 40px;
+					animation: spin 1s linear infinite;
+					margin: 0 auto;
+				}
+				
+				.small-spinner {
+					border: 2px solid #f3f3f3;
+					border-top: 2px solid #007bff;
+					border-radius: 50%;
+					width: 20px;
+					height: 20px;
+					animation: spin 1s linear infinite;
+					display: inline-block;
+				}
+				
+				@keyframes spin {
+					0% { transform: rotate(0deg); }
+					100% { transform: rotate(360deg); }
+				}
+				
+				.stats-cards .card {
+					margin-bottom: 20px;
+				}
+			</style>
 			<div class="monitor-dashboard">
 				<!-- Statistics Cards -->
 				<div class="row stats-cards" style="margin-bottom: 20px;">
@@ -127,9 +158,11 @@ class StockEntryMonitor {
 							</div>
 							<div class="card-body">
 								<div id="issues-table-container">
-									<div class="text-center text-muted" style="padding: 40px;">
-										<i class="fa fa-spinner fa-spin fa-2x"></i>
-										<p style="margin-top: 10px;">Loading issues...</p>
+									<div class="text-center" style="padding: 50px;">
+										<div class="custom-spinner"></div>
+										<div class="mt-3">
+											<h6 class="text-muted">Loading Issues...</h6>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -175,7 +208,15 @@ class StockEntryMonitor {
 
 	async load_issues() {
 		try {
-			frappe.show_progress('Loading Issues...', 50, 100);
+			// Show spinner in issues container
+			$('#issues-table-container').html(`
+				<div class="text-center" style="padding: 50px;">
+					<div class="custom-spinner"></div>
+					<div class="mt-3">
+						<h6 class="text-muted">Loading Issues...</h6>
+					</div>
+				</div>
+			`);
 			
 			// Get status filter
 			const status = this.status_filter.get_value() || 'Open';
@@ -194,19 +235,30 @@ class StockEntryMonitor {
 				this.load_statistics();
 				$('#last-updated').text(frappe.datetime.str_to_user(frappe.datetime.now_datetime()));
 			} else {
-				frappe.msgprint('Failed to load issues: ' + response.message.message);
+				$('#issues-table-container').html(`
+					<div class="alert alert-danger text-center">
+						<i class="fa fa-exclamation-triangle"></i>
+						Failed to load issues: ${response.message.message}
+					</div>
+				`);
 			}
 			
 		} catch (error) {
 			console.error('Error loading issues:', error);
-			frappe.msgprint('Error loading issues');
-		} finally {
-			frappe.hide_progress();
+			$('#issues-table-container').html(`
+				<div class="alert alert-danger text-center">
+					<i class="fa fa-exclamation-triangle"></i>
+					Error loading issues. Please try again.
+				</div>
+			`);
 		}
 	}
 
 	async load_statistics() {
 		try {
+			// Show small spinner in stats cards
+			$('.stats-cards .card-body h2').html('<div class="small-spinner"></div>');
+			
 			const response = await frappe.call({
 				method: 'stock_ledger_fixer.stock_ledger_fixer.stock_entry_monitor.get_issue_statistics'
 			});
@@ -217,9 +269,20 @@ class StockEntryMonitor {
 				$('#high-count').text(stats.high_issues || 0);
 				$('#medium-count').text(stats.medium_issues || 0);
 				$('#resolved-today-count').text(stats.resolved_today || 0);
+			} else {
+				// Reset to 0 if failed
+				$('#critical-count').text('0');
+				$('#high-count').text('0');
+				$('#medium-count').text('0');
+				$('#resolved-today-count').text('0');
 			}
 		} catch (error) {
 			console.error('Error loading statistics:', error);
+			// Reset to 0 if failed
+			$('#critical-count').text('0');
+			$('#high-count').text('0');
+			$('#medium-count').text('0');
+			$('#resolved-today-count').text('0');
 		}
 	}
 
