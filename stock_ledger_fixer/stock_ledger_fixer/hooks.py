@@ -10,11 +10,12 @@ def validate_stock_entry_on_submit(doc, method):
     """
     try:
         # Check if validation is enabled (with fallback if field doesn't exist)
+        validation_enabled = True
         try:
-            validation_enabled = frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation")
+            if frappe.get_meta("Stock Settings").has_field("enable_stock_ledger_validation"):
+                validation_enabled = frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation")
         except Exception:
-            # Field doesn't exist, default to enabled for validation
-            validation_enabled = True
+            pass
             
         if not validation_enabled:
             return
@@ -143,8 +144,15 @@ def send_validation_notification(stock_entry_name, validation_result):
     """
     try:
         # Get notification settings
-        notification_enabled = frappe.db.get_single_value("Stock Settings", "notify_on_stock_ledger_issues")
-        notification_users = frappe.db.get_single_value("Stock Settings", "stock_ledger_notification_users")
+        notification_enabled = False
+        notification_users = None
+        
+        meta = frappe.get_meta("Stock Settings")
+        if meta.has_field("notify_on_stock_ledger_issues"):
+            notification_enabled = frappe.db.get_single_value("Stock Settings", "notify_on_stock_ledger_issues")
+        
+        if meta.has_field("stock_ledger_notification_users"):
+            notification_users = frappe.db.get_single_value("Stock Settings", "stock_ledger_notification_users")
         
         if not notification_enabled or not notification_users:
             return
@@ -188,10 +196,11 @@ def get_stock_entry_validation_settings():
     """
     Get validation settings with defaults.
     """
+    meta = frappe.get_meta("Stock Settings")
     return {
-        "enable_validation": frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation") or False,
-        "auto_create_issues": frappe.db.get_single_value("Stock Settings", "auto_create_stock_ledger_issues") or True,
-        "send_notifications": frappe.db.get_single_value("Stock Settings", "notify_on_stock_ledger_issues") or False,
-        "validation_delay": frappe.db.get_single_value("Stock Settings", "stock_ledger_validation_delay") or 10,
-        "max_retries": frappe.db.get_single_value("Stock Settings", "stock_ledger_validation_retries") or 3
+        "enable_validation": frappe.db.get_single_value("Stock Settings", "enable_stock_ledger_validation") if meta.has_field("enable_stock_ledger_validation") else False,
+        "auto_create_issues": frappe.db.get_single_value("Stock Settings", "auto_create_stock_ledger_issues") if meta.has_field("auto_create_stock_ledger_issues") else True,
+        "send_notifications": frappe.db.get_single_value("Stock Settings", "notify_on_stock_ledger_issues") if meta.has_field("notify_on_stock_ledger_issues") else False,
+        "validation_delay": frappe.db.get_single_value("Stock Settings", "stock_ledger_validation_delay") if meta.has_field("stock_ledger_validation_delay") else 10,
+        "max_retries": frappe.db.get_single_value("Stock Settings", "stock_ledger_validation_retries") if meta.has_field("stock_ledger_validation_retries") else 3
     }
