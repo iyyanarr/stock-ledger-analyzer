@@ -45,16 +45,20 @@ def schedule_stock_entry_validation(doc, method):
     pass
 
 
-def delayed_validation(stock_entry_name, retry_count=0):
+def delayed_validation(stock_entry_name, retry_count=0, delay=0, **kwargs):
     """
     Delayed validation function that checks for SLE issues after stock entry submission.
     """
     try:
         from stock_ledger_fixer.stock_ledger_fixer.utils import StockLedgerValidator
+        import time
         
+        # Respect the delay if provided
+        if delay > 0:
+            time.sleep(delay)
+            
         # Wait a bit more if this is a retry
         if retry_count > 0:
-            import time
             time.sleep(5 * retry_count)  # Progressive delay
         
         validator = StockLedgerValidator()
