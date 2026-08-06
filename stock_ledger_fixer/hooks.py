@@ -45,12 +45,45 @@ page_js = {"stock-ledger-analyzer" : "public/js/stock_ledger_analyzer.js"}
 # Document Events
 # ---------------
 
-doc_events = {
-    "Stock Entry": {
-        "on_submit": "stock_ledger_fixer.stock_ledger_fixer.hooks.validate_stock_entry_on_submit",
-        "after_insert": "stock_ledger_fixer.stock_ledger_fixer.hooks.schedule_stock_entry_validation"
-    }
-}
+# DISABLED: the automatic on-submit validation is non-functional and expensive.
+#
+# hooks.delayed_validation (stock_ledger_fixer/hooks.py) opens with
+#     from stock_ledger_fixer.stock_ledger_fixer.utils import StockLedgerValidator
+# and that module does not exist anywhere in this app — so the import raises
+# ImportError on EVERY Stock Entry, the validator has never once run, and the
+# except-branch re-enqueues itself three times with progressive in-worker
+# time.sleep() calls before giving up:
+#
+#     initial  sleep 10s  -> ImportError -> retry
+#     retry 1  sleep 35s  -> ImportError -> retry
+#     retry 2  sleep 70s  -> ImportError -> retry
+#     retry 3  sleep 105s -> ImportError -> log "Failed to validate ... after 3 retries"
+#
+# i.e. 4 short-queue jobs and ~220s of BLOCKED worker time per Stock Entry, for
+# no result. time.sleep() inside a worker holds the queue slot, so this
+# saturates the short queue on a busy site.
+#
+# Measured on the SPP production site (spp15), 2026-08-06:
+#     319 such failures today   = 44% of all 733 error logs
+#   3,995 over the last 7 days  = 49% of all 8,232 error logs
+#   ~1,276 wasted background jobs/day
+#   Stock Ledger Issue / Stock Entry Issue doctypes do not exist -> zero output
+#
+# The rest of the app is UNAFFECTED and still works: detection.py, fixer.py and
+# the "Stock Ledger Analyzer" page carry no dependency on the missing module, so
+# on-demand analysis is unchanged. Only the automatic hook is disabled.
+#
+# To re-enable, first implement stock_ledger_fixer/stock_ledger_fixer/utils.py
+# with a StockLedgerValidator class, and reconsider the retry design — sleeping
+# in a worker should be replaced with frappe.enqueue_after_commit / a scheduled
+# job so queue slots are not held.
+#
+# doc_events = {
+#     "Stock Entry": {
+#         "on_submit": "stock_ledger_fixer.stock_ledger_fixer.hooks.validate_stock_entry_on_submit",
+#         "after_insert": "stock_ledger_fixer.stock_ledger_fixer.hooks.schedule_stock_entry_validation"
+#     }
+# }
 
 # Scheduled Tasks
 # ---------------
